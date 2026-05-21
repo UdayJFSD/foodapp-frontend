@@ -1,11 +1,24 @@
-import { Link, useNavigate } from "react-router-dom"
+import {
+  Link,
+  useNavigate
+} from "react-router-dom"
+
+import {
+  useSelector
+} from "react-redux"
 
 function Navbar() {
 
-  const navigate = useNavigate()
+  const navigate =
+    useNavigate()
 
   const token =
     localStorage.getItem("token")
+
+  const totalQuantity =
+    useSelector(
+      state => state.cart.totalQuantity
+    )
 
   const logout = () => {
 
@@ -35,7 +48,13 @@ function Navbar() {
         FoodApp
       </Link>
 
-      <div className="flex gap-6 items-center">
+      <div
+        className="
+        flex
+        gap-6
+        items-center
+      "
+      >
 
         <Link to="/">
           Home
@@ -49,7 +68,9 @@ function Navbar() {
           token && (
             <>
               <Link to="/cart">
-                Cart
+
+                Cart ({totalQuantity})
+
               </Link>
 
               <Link to="/orders">
