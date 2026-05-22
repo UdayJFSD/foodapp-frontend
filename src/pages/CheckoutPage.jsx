@@ -4,13 +4,29 @@ import {
 } from "react-redux"
 
 import {
+  useNavigate
+} from "react-router-dom"
+
+import {
   clearCart
 } from "../features/cartSlice"
+
+import {
+  placeOrder
+} from "../services/orderService"
+
+import {
+  createPaymentOrder,
+  verifyPayment
+} from "../services/paymentService"
 
 function CheckoutPage() {
 
   const dispatch =
     useDispatch()
+
+  const navigate =
+    useNavigate()
 
   const {
     items,
@@ -20,8 +36,12 @@ function CheckoutPage() {
     state => state.cart
   )
 
+  // =========================
+  // PLACE ORDER + PAYMENT
+  // =========================
+
   const handlePlaceOrder =
-    () => {
+    async () => {
 
       if (items.length === 0) {
 
@@ -32,11 +52,161 @@ function CheckoutPage() {
         return
       }
 
-      alert(
-        "Order Placed Successfully"
-      )
+      try {
 
-      dispatch(clearCart())
+        // =========================
+        // CREATE ORDER PAYLOAD
+        // =========================
+
+        const payload = {
+
+          items: items.map(
+            item => ({
+
+              foodItemId: item.id,
+
+              quantity: item.quantity
+            })
+          ),
+
+          totalAmount:
+            totalPrice
+        }
+
+        // =========================
+        // SAVE ORDER IN DATABASE
+        // =========================
+
+        const orderResponse =
+          await placeOrder(
+            payload
+          )
+
+        // =========================
+        // CREATE RAZORPAY ORDER
+        // =========================
+
+        const razorpayData =
+          await createPaymentOrder(
+            totalPrice
+          )
+
+        // =========================
+        // RAZORPAY OPTIONS
+        // =========================
+
+        const options = {
+
+          key:
+            "rzp_test_SpX49oVNndzrZp",
+
+          amount:
+            razorpayData.amount,
+
+          currency:
+            razorpayData.currency,
+
+          name:
+            "FoodApp",
+
+          description:
+            "Food Order Payment",
+
+          order_id:
+            razorpayData.id,
+
+          handler:
+            async function (
+              response
+            ) {
+
+              try {
+
+                // =========================
+                // VERIFY PAYMENT
+                // =========================
+
+                await verifyPayment({
+
+                  razorpayOrderId:
+                    response
+                      .razorpay_order_id,
+
+                  razorpayPaymentId:
+                    response
+                      .razorpay_payment_id,
+
+                  razorpaySignature:
+                    response
+                      .razorpay_signature,
+
+                  orderId:
+                    orderResponse.id
+                })
+
+                alert(
+                  "Payment Successful"
+                )
+
+                // =========================
+                // CLEAR CART
+                // =========================
+
+                dispatch(
+                  clearCart()
+                )
+
+                // =========================
+                // REDIRECT
+                // =========================
+
+                navigate("/orders")
+
+              } catch (error) {
+
+                console.log(error)
+
+                alert(
+                  "Payment verification failed"
+                )
+              }
+            },
+
+          prefill: {
+
+            name:
+              "Customer",
+
+            email:
+              "customer@gmail.com"
+          },
+
+          theme: {
+
+            color:
+              "#000000"
+          }
+        }
+
+        // =========================
+        // OPEN RAZORPAY
+        // =========================
+
+        const rzp =
+          new window.Razorpay(
+            options
+          )
+
+        rzp.open()
+
+      } catch (error) {
+
+        console.log(error)
+
+        alert(
+          "Checkout failed"
+        )
+      }
     }
 
   return (
@@ -45,6 +215,7 @@ function CheckoutPage() {
       className="
       max-w-4xl
       mx-auto
+      p-6
     "
     >
 
@@ -85,6 +256,7 @@ function CheckoutPage() {
               className="
               flex
               justify-between
+              items-center
               border-b
               py-4
             "
@@ -92,19 +264,31 @@ function CheckoutPage() {
 
               <div>
 
-                <h3 className="text-xl">
+                <h3
+                  className="
+                  text-xl
+                  font-semibold
+                "
+                >
                   {item.name}
                 </h3>
 
                 <p>
+
                   Quantity:
                   {" "}
                   {item.quantity}
+
                 </p>
 
               </div>
 
-              <div>
+              <div
+                className="
+                text-lg
+                font-bold
+              "
+              >
 
                 ₹
                 {" "}
@@ -147,7 +331,9 @@ function CheckoutPage() {
           </h2>
 
           <button
-            onClick={handlePlaceOrder}
+            onClick={
+              handlePlaceOrder
+            }
             className="
             bg-black
             text-white
@@ -155,9 +341,10 @@ function CheckoutPage() {
             py-4
             rounded
             text-xl
+            hover:bg-gray-800
           "
           >
-            Place Order
+            Pay & Place Order
           </button>
 
         </div>
